@@ -258,7 +258,12 @@ const GameManager = () => {
     pauseGame,
     settings,
     skillCooldown,
-    triggerSkill
+    triggerSkill,
+    isSkillActive,
+    skillEndTime,
+    skillCharges,
+    endSkill,
+    decrementSkillCharge
   } = useGameStore();
 
   const { camera } = useThree();
@@ -288,7 +293,7 @@ const GameManager = () => {
   const particlesRef = useRef<Particle[]>([]);
 
   // Skill State
-  const barrageTimer = useRef(0);
+  const lastSkillShot = useRef(0);
 
   const keys = useRef<{ [key: string]: boolean }>({});
   const mouse = useRef(new THREE.Vector2());
@@ -377,7 +382,7 @@ const GameManager = () => {
     // Skill Input
     const handleSkill = (e: KeyboardEvent) => {
       if ((e.code === 'KeyE' || e.code === 'ShiftLeft') && status === 'PLAYING') {
-        activateSkill();
+        triggerSkill();
       }
     }
 
@@ -464,9 +469,22 @@ const GameManager = () => {
     const isSpacePressed = keys.current['Space'] || keys.current['CodeSpace'] || keys.current['Enter'];
     const isMousePressed = keys.current['Click'];
 
-    const isFiring = isUIFiring || isSpacePressed || isMousePressed;
+    // Skill Overrides
+    const isFighterSkill = selectedPlane === 'FIGHTER' && isSkillActive && skillCharges > 0;
+    const isHeliSkill = selectedPlane === 'HELICOPTER' && isSkillActive;
+    const isManualSkill = isFighterSkill || isHeliSkill;
+    const isFiring = (isUIFiring || isSpacePressed || isMousePressed);
 
     const fireDelay = stats.fireRate;
+
+    // Check Skill Duration
+    if (isSkillActive && Date.now() > skillEndTime && selectedPlane !== 'FIGHTER') {
+      endSkill();
+    }
+    // Fighter ends when charges run out OR time runs out
+    if (isSkillActive && selectedPlane === 'FIGHTER' && (skillCharges <= 0 || Date.now() > skillEndTime)) {
+      endSkill();
+    }
 
     if (bulletMeshRef.current) {
       bulletsRef.current.forEach((b, i) => {
@@ -483,7 +501,7 @@ const GameManager = () => {
       bulletMeshRef.current.instanceMatrix.needsUpdate = true;
     }
 
-    if (isFiring && now - lastShotTime.current >= fireDelay) {
+    if (isFiring && !isManualSkill && now - lastShotTime.current >= fireDelay) {
       lastShotTime.current = now;
 
       // Aim Assist Logic
@@ -521,28 +539,100 @@ const GameManager = () => {
       bulletsRef.current.push(b);
     }
 
-    // Skill Logic (Barrage)
-    if (barrageTimer.current > 0) {
-      barrageTimer.current -= delta;
-      if (now % 100 < 20) {
-        const bVel = forward.clone().multiplyScalar(BULLET_SPEED);
-        // Find target
+    // Fighter Skill Fire (Replaces Normal Fire)
+    if (isFighterSkill && isFiring && now - lastSkillShot.current > 500) {
+      lastSkillShot.current = now;
+      decrementSkillCharge();
+
+      // Fire 5 missiles in a spread
+      for (let i = 0; i < 5; i++) {
+        // Find target in FOV
         let target: Enemy | undefined;
-        let minDist = 1000;
+        let minDist = 3000;
         enemiesRef.current.forEach(e => {
-          const d = e.position.distanceTo(playerPos.current);
-          if (d < minDist) { minDist = d; target = e; }
+          const dir = e.position.clone().sub(playerPos.current).normalize();
+          const dot = forward.dot(dir);
+          const dist = e.position.distanceTo(playerPos.current);
+          if (dot > 0.7 && dist < minDist) { // ~45 degree FOV
+            minDist = dist;
+            target = e;
+          }
         });
 
-        missilesRef.current.push({
+        // Spread offset
+        const offset = new THREE.Vector3((i - 2) * 5, -2, 0);
+
+        const m: Missile = {
           id: Math.random().toString(),
-          position: playerPos.current.clone().add(new THREE.Vector3((Math.random() - 0.5) * 10, 0, 0)),
-          velocity: bVel,
+          position: playerPos.current.clone().add(offset),
+          velocity: new THREE.Vector3((i - 2) * 2, -5, 0).applyQuaternion(playerRot.current).add(playerVel.current),
           target: target,
-          life: 3.0,
-          type: 'BARRAGE'
-        });
-        forceUpdate({});
+          life: 10.0,
+          type: 'HOMER'
+        };
+        missilesRef.current.push(m);
+      }
+      forceUpdate({});
+    }
+
+    // Helicopter Skill Fire (Replaces Normal Fire)
+    if (isHeliSkill && isFiring && now - lastSkillShot.current > (stats.skill.fireRate || 50)) {
+      lastSkillShot.current = now;
+
+      const bVel = forward.clone().multiplyScalar(BULLET_SPEED);
+      // Find target in FOV
+      let target: Enemy | undefined;
+      let minDist = 2000;
+      enemiesRef.current.forEach(e => {
+        const dir = e.position.clone().sub(playerPos.current).normalize();
+        const dot = forward.dot(dir);
+        if (dot > 0.7 && e.position.distanceTo(playerPos.current) < minDist) {
+          minDist = e.position.distanceTo(playerPos.current);
+          target = e;
+        }
+      });
+
+      missilesRef.current.push({
+        id: Math.random().toString(),
+        position: playerPos.current.clone().add(new THREE.Vector3((Math.random() - 0.5) * 10, 0, 0)),
+        velocity: bVel,
+        target: target, // If undefined, goes straight
+        life: 3.0,
+        type: 'BARRAGE'
+      });
+      forceUpdate({});
+    }
+
+    // Auto Skills (Heli & Propeller)
+    if (isSkillActive) {
+      const skillStats = PLANE_STATS[selectedPlane].skill;
+      if (now - lastSkillShot.current > (skillStats.fireRate || 100)) {
+        if (selectedPlane === 'PROPELLER') {
+          lastSkillShot.current = now;
+          const back = new THREE.Vector3(0, 0, 1).applyQuaternion(playerRot.current);
+
+          // Find target BEHIND
+          let target: Enemy | undefined;
+          let minDist = 2000;
+          enemiesRef.current.forEach(e => {
+            const dir = e.position.clone().sub(playerPos.current).normalize();
+            const dot = back.dot(dir);
+            if (dot > 0.7 && e.position.distanceTo(playerPos.current) < minDist) {
+              minDist = e.position.distanceTo(playerPos.current);
+              target = e;
+            }
+          });
+
+          missilesRef.current.push({
+            id: Math.random().toString(),
+            position: playerPos.current.clone().add(back.multiplyScalar(10)),
+            velocity: back.multiplyScalar(BULLET_SPEED * 0.5),
+            target: target,
+            life: 5.0,
+            type: 'TRAILING'
+          });
+          forceUpdate({});
+        }
       }
     }
 
@@ -721,56 +811,7 @@ const GameManager = () => {
     setParticleList([...particlesRef.current]);
   };
 
-  const activateSkill = () => {
-    const now = Date.now();
-    if (now < useGameStore.getState().skillCooldown) return;
 
-    triggerSkill();
-    const stats = PLANE_STATS[selectedPlane];
-
-    if (selectedPlane === 'FIGHTER') {
-      // Homer Missile
-      let target: Enemy | undefined;
-      let minDist = 2000;
-      enemiesRef.current.forEach(e => {
-        const d = e.position.distanceTo(playerPos.current);
-        if (d < minDist) { minDist = d; target = e; }
-      });
-
-      const m: Missile = {
-        id: Math.random().toString(),
-        position: playerPos.current.clone().add(new THREE.Vector3(0, -2, 0)),
-        velocity: new THREE.Vector3(0, -10, 0).applyQuaternion(playerRot.current).add(playerVel.current), // Drop then ignite
-        target: target,
-        life: 5.0,
-        type: 'HOMER'
-      };
-      missilesRef.current.push(m);
-      forceUpdate({});
-    }
-    else if (selectedPlane === 'PROPELLER') {
-      // Trailing Missile (Fires backwards)
-      const back = new THREE.Vector3(0, 0, 1).applyQuaternion(playerRot.current);
-      const m: Missile = {
-        id: Math.random().toString(),
-        position: playerPos.current.clone().add(back.multiplyScalar(10)),
-        velocity: back.multiplyScalar(BULLET_SPEED * 0.5),
-        life: 5.0,
-        type: 'TRAILING'
-      };
-      // Find target behind
-      enemiesRef.current.forEach(e => {
-        const dir = e.position.clone().sub(playerPos.current).normalize();
-        if (back.dot(dir) > 0.8) m.target = e;
-      });
-      missilesRef.current.push(m);
-      forceUpdate({});
-    }
-    else if (selectedPlane === 'HELICOPTER') {
-      // Barrage
-      barrageTimer.current = 3.0;
-    }
-  };
 
   useEffect(() => {
     useGameStore.getState().setRefs(playerPos, playerRot, enemiesRef);
