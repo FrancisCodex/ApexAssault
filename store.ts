@@ -17,7 +17,12 @@ interface Store extends GameState {
   setEnemiesRemaining: (count: number) => void;
   updateSettings: (settings: Partial<Settings>) => void;
   setIsFiring: (isFiring: boolean) => void;
+  isSkillActive: boolean;
+  skillEndTime: number;
+  skillCharges: number;
   triggerSkill: () => void;
+  endSkill: () => void;
+  decrementSkillCharge: () => void;
   resetSkill: () => void;
   playerPosRef: any;
   playerRotRef: any;
@@ -38,6 +43,9 @@ export const useGameStore = create<Store>((set, get) => ({
   maxPlayerHealth: 100,
   isFiring: false,
   skillCooldown: 0,
+  isSkillActive: false,
+  skillEndTime: 0,
+  skillCharges: 0,
   lastResult: null,
   settings: {
     controlScheme: 'MOUSE',
@@ -134,8 +142,33 @@ export const useGameStore = create<Store>((set, get) => ({
 
   triggerSkill: () => {
     const state = get();
+    if (state.skillCooldown > Date.now() || state.isSkillActive) return;
+
     const stats = PLANE_STATS[state.selectedPlane];
-    set({ skillCooldown: Date.now() + stats.skill.cooldown });
+    set({
+      isSkillActive: true,
+      skillEndTime: Date.now() + stats.skill.duration,
+      skillCharges: stats.skill.maxShots || 0
+    });
+  },
+
+  endSkill: () => {
+    const state = get();
+    if (!state.isSkillActive) return;
+
+    const stats = PLANE_STATS[state.selectedPlane];
+    set({
+      isSkillActive: false,
+      skillCooldown: Date.now() + stats.skill.cooldown,
+      skillCharges: 0
+    });
+  },
+
+  decrementSkillCharge: () => {
+    const state = get();
+    if (state.skillCharges > 0) {
+      set({ skillCharges: state.skillCharges - 1 });
+    }
   },
 
   resetSkill: () => set({ skillCooldown: 0 }),

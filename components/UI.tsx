@@ -178,7 +178,7 @@ const SettingsMenu = ({ onClose }: { onClose: () => void }) => {
 }
 
 export const HUD = () => {
-  const { playerHealth, maxPlayerHealth, score, wave, status, setIsFiring, skillCooldown, selectedPlane, enemiesKilled, enemiesRemaining } = useGameStore();
+  const { playerHealth, maxPlayerHealth, score, wave, status, setIsFiring, skillCooldown, selectedPlane, enemiesKilled, enemiesRemaining, isSkillActive, skillEndTime, skillCharges } = useGameStore();
   const hpPercent = Math.max(0, (playerHealth / maxPlayerHealth) * 100);
   const [timeLeft, setTimeLeft] = useState(0);
   const [showKillConfirm, setShowKillConfirm] = useState(false);
@@ -195,11 +195,16 @@ export const HUD = () => {
 
   React.useEffect(() => {
     const interval = setInterval(() => {
-      const diff = Math.max(0, skillCooldown - Date.now());
-      setTimeLeft(Math.ceil(diff / 1000));
+      if (isSkillActive) {
+        const diff = Math.max(0, skillEndTime - Date.now());
+        setTimeLeft(Math.ceil(diff / 1000));
+      } else {
+        const diff = Math.max(0, skillCooldown - Date.now());
+        setTimeLeft(Math.ceil(diff / 1000));
+      }
     }, 100);
     return () => clearInterval(interval);
-  }, [skillCooldown]);
+  }, [skillCooldown, isSkillActive, skillEndTime]);
 
   const skillName = PLANE_STATS[selectedPlane].skill.name;
 
@@ -240,18 +245,29 @@ export const HUD = () => {
 
       {/* Crosshair */}
       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-        <Crosshair className="w-8 h-8 text-white/80" />
+        <Crosshair className="w-10 h-10 text-white/80" />
       </div>
 
       {/* Skill Indicator */}
       <div className="absolute bottom-6 left-6 pointer-events-auto">
-        <div className={`p-4 rounded-lg border-2 flex flex-col items-center gap-1 transition-all ${timeLeft === 0 ? 'bg-blue-900/80 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-zinc-900/80 border-zinc-700 opacity-70'}`}>
+        <div className={`p-4 rounded-lg border-2 flex flex-col items-center gap-1 transition-all ${isSkillActive ? 'bg-yellow-900/80 border-yellow-400 animate-pulse' : (timeLeft === 0 ? 'bg-blue-900/80 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-zinc-900/80 border-zinc-700 opacity-70')}`}>
           <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">SKILL (E)</div>
           <div className="text-lg font-black text-white leading-none text-center">{skillName}</div>
-          {timeLeft > 0 ? (
-            <div className="text-2xl font-mono font-bold text-red-400">{timeLeft}s</div>
+
+          {isSkillActive ? (
+            <div className="flex flex-col items-center">
+              <div className="text-xl font-black text-yellow-400">ACTIVE</div>
+              <div className="text-sm font-mono text-white">{timeLeft}s</div>
+              {selectedPlane === 'FIGHTER' && (
+                <div className="text-xs font-bold text-red-400 mt-1">{skillCharges} SHOTS LEFT</div>
+              )}
+            </div>
           ) : (
-            <div className="text-xl font-bold text-green-400 animate-pulse">READY</div>
+            timeLeft > 0 ? (
+              <div className="text-2xl font-mono font-bold text-red-400">{timeLeft}s</div>
+            ) : (
+              <div className="text-xl font-bold text-green-400 animate-pulse">READY</div>
+            )
           )}
         </div>
       </div>

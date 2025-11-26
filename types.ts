@@ -19,6 +19,7 @@ export interface Skill {
   damage: number;
   duration?: number; // for barrage
   fireRate?: number; // for barrage
+  maxShots?: number;
 }
 
 export type GameStatus = 'MENU' | 'PLAYING' | 'PAUSED' | 'GAMEOVER' | 'VICTORY';
@@ -54,51 +55,55 @@ export const PLANE_STATS: Record<PlaneType, PlaneStats> = {
   FIGHTER: {
     id: 'FIGHTER',
     name: 'F-14 Tomcat',
-    speed: 1.5,
-    turnSpeed: 1.5,
-    health: 100,
+    speed: 1,
+    turnSpeed: 2.5,
+    health: 90,
     damage: 30,
     fireRate: 170,
     description: 'High speed, rapid fire, balanced handling.',
     skill: {
       name: 'Homer Missile',
-      description: 'Fires a tracking missile.',
+      description: 'Acivates 5 Homer Missiles for 10s.',
       cooldown: 10000,
-      damage: 75
+      damage: 75,
+      duration: 10000,
+      maxShots: 5
     }
   },
   PROPELLER: {
     id: 'PROPELLER',
     name: 'Spitfire MK',
-    speed: 1.5,
-    turnSpeed: 2.75,
-    health: 90,
+    speed: .75,
+    turnSpeed: 3.75,
+    health: 85,
     damage: 20,
     fireRate: 120,
     description: 'Agile dogfighter, heavy hits, lower speed.',
     skill: {
       name: 'Trailing Missile',
-      description: 'Fires a backward tracking missile.',
+      description: 'Rear-firing missile barrage.',
       cooldown: 10000,
-      damage: 75
+      damage: 75,
+      duration: 2500,
+      fireRate: 50
     }
   },
   HELICOPTER: {
     id: 'HELICOPTER',
     name: 'Apache AH-64',
     speed: 0.5,
-    turnSpeed: 3.5,
+    turnSpeed: 4,
     health: 170,
-    damage: 8, // Gatling gun
+    damage: 15, // Gatling gun
     fireRate: 150,
     description: 'Tanky, extremely agile turning, gatling gun.',
     skill: {
       name: 'Missile Barrage',
-      description: 'Rapid fire homing missiles for 2.5s.',
+      description: 'Manual rapid fire missiles. Homing in FOV.',
       cooldown: 10000,
       damage: 10,
       duration: 2500,
-      fireRate: 20
+      fireRate: 300
     }
   },
 };
