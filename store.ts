@@ -24,11 +24,17 @@ interface Store extends GameState {
   endSkill: () => void;
   decrementSkillCharge: () => void;
   resetSkill: () => void;
+  flareReadyTime: number;
+  triggerFlares: () => void;
   playerPosRef: any;
   playerRotRef: any;
   enemiesRef: any;
   setRefs: (playerPosRef: any, playerRotRef: any, enemiesRef: any) => void;
   enemiesRemaining: number;
+  isWaveTransitioning: boolean;
+  setWaveTransitioning: (isTransitioning: boolean) => void;
+  warningMessage: string | null;
+  setWarningMessage: (msg: string | null) => void;
 }
 
 export const useGameStore = create<Store>((set, get) => ({
@@ -46,7 +52,10 @@ export const useGameStore = create<Store>((set, get) => ({
   isSkillActive: false,
   skillEndTime: 0,
   skillCharges: 0,
+  flareReadyTime: 0,
+  isWaveTransitioning: false,
   lastResult: null,
+  warningMessage: null,
   settings: {
     controlScheme: 'MOUSE',
     showClouds: true,
@@ -64,6 +73,8 @@ export const useGameStore = create<Store>((set, get) => ({
 
   setGameStatus: (status) => set({ status }),
 
+  setWarningMessage: (msg) => set({ warningMessage: msg }),
+
   selectPlane: (plane) => set({ selectedPlane: plane }),
 
   startGame: () => set((state) => {
@@ -77,6 +88,9 @@ export const useGameStore = create<Store>((set, get) => ({
       maxPlayerHealth: stats.health,
       isFiring: false,
       skillCooldown: 0,
+      flareReadyTime: 0,
+      isWaveTransitioning: false,
+      warningMessage: null,
     };
   }),
 
@@ -94,7 +108,8 @@ export const useGameStore = create<Store>((set, get) => ({
         score: state.score,
         wave: state.wave,
         plane: stats.name
-      }
+      },
+      warningMessage: null,
     });
   },
 
@@ -108,7 +123,8 @@ export const useGameStore = create<Store>((set, get) => ({
         score: state.score,
         wave: state.wave,
         plane: stats.name
-      }
+      },
+      warningMessage: null,
     });
   },
 
@@ -122,6 +138,7 @@ export const useGameStore = create<Store>((set, get) => ({
       playerHealth: stats.health,
       maxPlayerHealth: stats.health,
       isFiring: false,
+      warningMessage: null,
     };
   }),
 
@@ -172,4 +189,14 @@ export const useGameStore = create<Store>((set, get) => ({
   },
 
   resetSkill: () => set({ skillCooldown: 0 }),
+
+  triggerFlares: () => {
+    const state = get();
+    if (Date.now() < state.flareReadyTime) return;
+
+    const stats = PLANE_STATS[state.selectedPlane];
+    set({ flareReadyTime: Date.now() + stats.flareCooldown });
+  },
+
+  setWaveTransitioning: (isTransitioning) => set({ isWaveTransitioning: isTransitioning }),
 }));

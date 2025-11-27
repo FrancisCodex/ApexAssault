@@ -17,8 +17,8 @@ export const StartScreen = () => {
           <SettingsIcon className="w-6 h-6" />
         </button>
 
-        <h1 className="text-6xl font-black text-center mb-4 tracking-tighter italic bg-gradient-to-r from-blue-500 to-cyan-400 bg-clip-text text-transparent">
-          APEX ASSAULT: DOGFIGHT EDITION
+        <h1 className="text-6xl font-black text-center mb-4 tracking-tighter italic bg-gradient-to-r from-blue-500 to-cyan-500 bg-clip-text text-transparent">
+          APEX ASSAULT
         </h1>
 
         {/* Scoreboard / Last Mission Report */}
@@ -178,9 +178,10 @@ const SettingsMenu = ({ onClose }: { onClose: () => void }) => {
 }
 
 export const HUD = () => {
-  const { playerHealth, maxPlayerHealth, score, wave, status, setIsFiring, skillCooldown, selectedPlane, enemiesKilled, enemiesRemaining, isSkillActive, skillEndTime, skillCharges } = useGameStore();
+  const { playerHealth, maxPlayerHealth, score, wave, status, setIsFiring, skillCooldown, selectedPlane, enemiesKilled, enemiesRemaining, isSkillActive, skillEndTime, skillCharges, flareReadyTime, isWaveTransitioning, warningMessage } = useGameStore();
   const hpPercent = Math.max(0, (playerHealth / maxPlayerHealth) * 100);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [flareTimeLeft, setFlareTimeLeft] = useState(0);
   const [showKillConfirm, setShowKillConfirm] = useState(false);
   const prevKills = useRef(enemiesKilled);
 
@@ -202,9 +203,12 @@ export const HUD = () => {
         const diff = Math.max(0, skillCooldown - Date.now());
         setTimeLeft(Math.ceil(diff / 1000));
       }
+
+      const flareDiff = Math.max(0, flareReadyTime - Date.now());
+      setFlareTimeLeft(Math.ceil(flareDiff / 1000));
     }, 100);
     return () => clearInterval(interval);
-  }, [skillCooldown, isSkillActive, skillEndTime]);
+  }, [skillCooldown, isSkillActive, skillEndTime, flareReadyTime]);
 
   const skillName = PLANE_STATS[selectedPlane].skill.name;
 
@@ -249,7 +253,7 @@ export const HUD = () => {
       </div>
 
       {/* Skill Indicator */}
-      <div className="absolute bottom-6 left-6 pointer-events-auto">
+      <div className="absolute bottom-6 left-6 pointer-events-auto flex gap-4">
         <div className={`p-4 rounded-lg border-2 flex flex-col items-center gap-1 transition-all ${isSkillActive ? 'bg-yellow-900/80 border-yellow-400 animate-pulse' : (timeLeft === 0 ? 'bg-blue-900/80 border-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.5)]' : 'bg-zinc-900/80 border-zinc-700 opacity-70')}`}>
           <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">SKILL (E)</div>
           <div className="text-lg font-black text-white leading-none text-center">{skillName}</div>
@@ -270,11 +274,23 @@ export const HUD = () => {
             )
           )}
         </div>
+
+        {/* Flare Indicator */}
+        <div className={`p-4 rounded-lg border-2 flex flex-col items-center gap-1 transition-all ${flareTimeLeft === 0 ? 'bg-orange-900/80 border-orange-400 shadow-[0_0_15px_rgba(249,115,22,0.5)]' : 'bg-zinc-900/80 border-zinc-700 opacity-70'}`}>
+          <div className="text-xs font-bold text-zinc-300 uppercase tracking-wider">FLARES (F)</div>
+          <div className="text-lg font-black text-white leading-none text-center">Countermeasures</div>
+
+          {flareTimeLeft > 0 ? (
+            <div className="text-2xl font-mono font-bold text-red-400">{flareTimeLeft}s</div>
+          ) : (
+            <div className="text-xl font-bold text-orange-400 animate-pulse">READY</div>
+          )}
+        </div>
       </div>
 
       {/* Bottom Area - Fire Button & Hints */}
       <div className="flex justify-between items-end w-full">
-        <div className="left-60 bottom-6 absolute bg-black/30 p-2 rounded text-xs text-white/50 font-mono self-end">
+        <div className="left-[40%] bottom-6 absolute bg-black/30 p-2 rounded text-xs text-white/50 font-mono self-end">
           MOUSE: Steer • SPACE/CLICK: Fire • W/S: Speed • ESC: Pause
         </div>
 
@@ -293,11 +309,35 @@ export const HUD = () => {
         </div> */}
       </div>
 
+      {/* Wave Survived Message */}
+      {isWaveTransitioning && (
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 flex flex-col items-center animate-in fade-in zoom-in duration-500">
+          <div className="text-6xl font-black text-green-500 drop-shadow-[0_0_20px_rgba(34,197,94,0.8)] italic tracking-tighter">
+            WAVE {wave} SURVIVED
+          </div>
+          <div className="text-2xl font-bold text-white mt-2 animate-pulse">
+            PREPARE FOR NEXT WAVE
+          </div>
+        </div>
+      )}
+
       {/* Kill Confirmation Popup */}
       {showKillConfirm && (
         <div className="absolute top-24 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce">
           <div className="text-red-500 font-black text-2xl tracking-widest drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">KILL CONFIRMED</div>
           <div className="text-yellow-400 font-bold text-sm">+100</div>
+        </div>
+      )}
+
+      {/* Warning Message */}
+      {warningMessage && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-16 flex flex-col items-center animate-pulse">
+          <div className="text-red-600 font-black text-6xl tracking-widest drop-shadow-[0_0_20px_rgba(220,38,38,1)] border-4 border-red-600 p-4 rounded-lg bg-black/50 backdrop-blur-sm transform -rotate-2">
+            {warningMessage}
+          </div>
+          <div className="text-red-400 font-bold text-xl mt-2 animate-bounce uppercase tracking-[0.5em]">
+            CRITICAL ALTITUDE
+          </div>
         </div>
       )}
 
