@@ -8,7 +8,7 @@
 
 ## 🎮 Overview
 
-**Apex Assault: Dogfight Edition** is an adrenaline-pumping 3D web-based flight combat game. Pilot legendary aircraft, engage in intense dogfights against waves of enemy AI, and survive to become the ultimate ace. Built with modern web technologies, it delivers a console-like experience directly in your browser.
+**Apex Assault** is an adrenaline-pumping 3D web-based flight combat game. Pilot legendary aircraft, engage in intense dogfights against waves of enemy AI, and survive to become the ultimate ace. Built with modern web technologies, it delivers a console-like experience directly in your browser.
 
 ## 🚀 Features
 
@@ -18,6 +18,8 @@
 -   **Wave-Based Survival**: Face increasingly difficult waves of enemies.
 -   **Responsive Controls**: Support for both Mouse and Keyboard flight controls.
 -   **Progression**: Track your score, kills, and wave progress.
+-   **Plane Movement**: Very Fun Plane Movements and maneuvers you can try.
+-   **AI**: AI is not perfect but it is fun to play against.
 
 ## 🕹️ How to Play
 
@@ -44,25 +46,36 @@ Choose your ride wisely. Each aircraft caters to a different playstyle.
 
 ### 1. F-14 Tomcat (Fighter)
 *The balanced choice for any ace.*
+-   **Description**: The F-14 Tomcat is a United States Navy fighter aircraft that is known for its balanced stats and special skills.
 -   **Stats**: Balanced Speed, Turn, and Health.
 -   **Weapon**: Standard Machine Gun.
--   **Special Skill**: **Homer Missile** - Fires a high-damage tracking missile that locks onto the nearest enemy.
+-   **Special Skill**: **Homer Missile** - Fires 5 long-range and high-damage tracking missiles on click that lock onto the nearest enemy. The Homing Missiles are very deadly missiles that is effective against long-range targets solo targets.
 -   **Cooldown**: 10s
+-   **Duration**: 10s or until all 5 missiles are used.
+-   **Flares**: Flares are used to counter enemy missiles.
+-   **Agile Movement**: The F-14 is the most agile plane in the game.
 
 ### 2. Spitfire MK (Propeller)
 *Old school cool. High damage, high agility.*
+-   **Description**: The Spitfire is a classic British fighter aircraft that is known for its agility and high damage.
 -   **Stats**: High Turn Speed, High Damage, Lower Top Speed.
 -   **Weapon**: Heavy Cannons.
--   **Special Skill**: **Trailing Missile** - Fires a backward-tracking missile to surprise enemies on your six.
+-   **Special Skill**: **Trailing Missile** - Fires a backward-tracking missile to surprise enemies on your six. The missile has a medium distance limit and high damage that is effective when getting chased by multiple enemies.
 -   **Cooldown**: 10s
+-   **Duration**: 3s
+-   **Flares**: Flares are used to counter enemy missiles.
+-   **DPS**: The Spitfire is the highest DPS plane in the game.
 
 ### 3. Apache AH-64 (Helicopter)
 *A flying tank. Slow but deadly.*
+-   **Description**: The Apache is a Soviet-era attack helicopter that is known for its high health and durability.
 -   **Stats**: High Health, Extreme Turn Speed, Low Speed.
 -   **Weapon**: Rapid-fire Gatling Gun (Low damage per hit, high fire rate).
--   **Special Skill**: **Missile Barrage** - Unleashes a swarm of homing missiles for 2.5 seconds.
+-   **Special Skill**: **Missile Barrage** - Unleashes a swarm of homing missiles for 2.5 seconds on click, very good in close range combat against swarming enemies. Missiles are not as effective against long-range targets but has the highest Damage Per Second for homing missiles.
 -   **Cooldown**: 10s
-
+-   **Duration**: 2.5s
+-   **Flares**: Flares are used to counter enemy missiles.
+-   **Durability**: The Apache is the most durable plane in the game.
 ## 🛠️ For Developers
 
 ### Tech Stack
