@@ -56,18 +56,18 @@ export const useGameStore = create<Store>((set, get) => ({
   isWaveTransitioning: false,
   lastResult: null,
   warningMessage: null,
+
   settings: {
     controlScheme: 'MOUSE',
     showClouds: true,
+    showRearViewMirror: false,
     masterVolume: 80,
   },
 
-  // --- ADD THESE 3 LINES ---
   playerPosRef: null,
   playerRotRef: null,
   enemiesRef: null,
 
-  // --- ADD THIS FUNCTION ---
   setRefs: (playerPosRef, playerRotRef, enemiesRef) =>
     set({ playerPosRef, playerRotRef, enemiesRef }),
 

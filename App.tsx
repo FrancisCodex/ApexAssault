@@ -2,7 +2,7 @@ import React from 'react';
 import { useGameStore } from './store';
 import { GameScene } from './components/GameScene';
 import { StartScreen, HUD, GameOverScreen, PauseMenu, MissionSuccessScreen } from './components/UI';
-
+import { Analytics } from "@vercel/analytics/react"
 const App = () => {
   const status = useGameStore((state) => state.status);
 
@@ -17,6 +17,7 @@ const App = () => {
       {status === 'PAUSED' && <PauseMenu />}
       {status === 'GAMEOVER' && <GameOverScreen />}
       {status === 'VICTORY' && <MissionSuccessScreen />}
+      <Analytics />
     </div>
   );
 };

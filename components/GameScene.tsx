@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Environment, Stars, Cloud, Billboard, Html } from '@react-three/drei';
+import { Canvas, useFrame, useThree, createPortal } from '@react-three/fiber';
+import { Environment, Stars, Cloud, Billboard, Html, useFBO, PerspectiveCamera, Hud, OrthographicCamera } from '@react-three/drei';
 import * as THREE from 'three';
 import { useGameStore } from '../store';
 import { PLANE_STATS, PlaneType } from '../types';
@@ -108,7 +108,6 @@ const EnemyObject = ({ data }: { data: Enemy }) => {
   );
 };
 
-// Bullet Object Wrapper - Improved visibility
 // Bullet Object Wrapper - Improved visibility
 const BulletObject = ({ data }: { data: Bullet }) => {
   const meshRef = useRef<THREE.Mesh>(null);
@@ -227,6 +226,8 @@ const Minimap = ({
     const euler = new THREE.Euler().setFromQuaternion(playerRot.current);
     const yaw = euler.y;
 
+    if (Math.random() < 0.01) console.log("Minimap Draw, Enemies:", enemiesRef.current.length);
+
     enemiesRef.current.forEach(e => {
       const relX = e.position.x - playerPos.current.x;
       const relZ = e.position.z - playerPos.current.z;
@@ -263,6 +264,69 @@ const Minimap = ({
     <div className="pointer-events-none">
       <canvas ref={canvasRef} width={200} height={200} className="rounded-full" />
     </div>
+  );
+};
+
+const RearViewMirror = ({
+  playerPos,
+  playerRot
+}: {
+  playerPos: React.MutableRefObject<THREE.Vector3>,
+  playerRot: React.MutableRefObject<THREE.Quaternion>
+}) => {
+  const { gl, scene } = useThree();
+  const fbo = useFBO(300, 100); // Widescreen mirror resolution
+  const rearCamRef = useRef<THREE.PerspectiveCamera>(null);
+
+  useFrame(() => {
+    if (rearCamRef.current) {
+      // Position camera behind and slightly above player, looking back
+      const offset = new THREE.Vector3(0, 5, 10); // Behind player
+      offset.applyQuaternion(playerRot.current);
+
+      const camPos = playerPos.current.clone().add(offset);
+      rearCamRef.current.position.copy(camPos);
+
+      // Look further back
+      const lookTarget = playerPos.current.clone().add(
+        new THREE.Vector3(0, 0, 100).applyQuaternion(playerRot.current)
+      );
+      rearCamRef.current.lookAt(lookTarget);
+
+      // Render to FBO
+      const oldTarget = gl.getRenderTarget();
+      gl.setRenderTarget(fbo);
+      gl.render(scene, rearCamRef.current);
+      gl.setRenderTarget(oldTarget);
+    }
+  });
+
+  return (
+    <>
+      <PerspectiveCamera ref={rearCamRef} fov={80} near={0.1} far={2000} />
+      <Hud renderPriority={1}>
+        <OrthographicCamera makeDefault position={[0, 0, 10]} zoom={100} />
+
+        <group position={[0, 3.5, 0]}>
+          {/* Border BEHIND */}
+          <mesh position={[0, 0, -0.02]}>
+            <planeGeometry args={[2.48, 0.88]} />
+            <meshBasicMaterial
+              color="#00ffff"
+              opacity={0.1}
+              transparent
+            />
+          </mesh>
+
+          {/* Mirror */}
+          <mesh>
+            <planeGeometry args={[2.48, 0.88]} />
+            <meshBasicMaterial map={fbo.texture} transparent />
+          </mesh>
+        </group>
+      </Hud>
+
+    </>
   );
 };
 
@@ -309,9 +373,7 @@ const GameManager = () => {
   const bulletDummy = new THREE.Object3D();
 
   // Lists for Rendering (State to trigger mounts)
-  // Lists for Rendering (State to trigger mounts)
   const [enemyList, setEnemyList] = useState<Enemy[]>([]);
-  // const [bulletList, setBulletList] = useState<Bullet[]>([]); // REMOVED STATE
   const [particleList, setParticleList] = useState<Particle[]>([]);
   const [flareList, setFlareList] = useState<Flare[]>([]);
 
@@ -324,6 +386,19 @@ const GameManager = () => {
   const missilesRef = useRef<Missile[]>([]);
   const particlesRef = useRef<Particle[]>([]);
   const flaresRef = useRef<Flare[]>([]);
+
+  const spawnExplosion = (pos: THREE.Vector3, color: string, count: number) => {
+    for (let i = 0; i < count; i++) {
+      particlesRef.current.push({
+        id: Math.random().toString(),
+        position: pos.clone(),
+        velocity: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(Math.random() * 50),
+        life: 1.0,
+        color
+      });
+    }
+    setParticleList([...particlesRef.current]);
+  };
 
   // Skill State
   const lastSkillShot = useRef(0);
@@ -359,8 +434,17 @@ const GameManager = () => {
       newEnemies.push(e);
     }
     enemiesRef.current = newEnemies;
+    console.log("Spawned Enemies:", newEnemies.length, newEnemies[0]);
     setEnemyList([...newEnemies]);
-  }, []);
+
+    // Clear others
+    bulletsRef.current = [];
+    missilesRef.current = [];
+    particlesRef.current = [];
+    flaresRef.current = [];
+    setParticleList([]);
+    setFlareList([]);
+  }, [status, selectedPlane]);
 
   // Strict Reset when entering PLAYING state
   useEffect(() => {
@@ -370,20 +454,6 @@ const GameManager = () => {
       playerRot.current.setFromEuler(new THREE.Euler(0, 0, 0));
       playerHP.current = stats.health;
 
-      // Explicitly clear refs
-      bulletsRef.current = [];
-      enemiesRef.current = [];
-      missilesRef.current = [];
-      particlesRef.current = [];
-      flaresRef.current = [];
-
-      // Force UI clear
-      // setBulletList([]); // REMOVED
-      setParticleList([]);
-      setFlareList([]);
-      setEnemyList([]);
-
-      // Initial Spawn
       spawnEnemies(1);
     }
   }, [status, selectedPlane, spawnEnemies]);
@@ -478,34 +548,101 @@ const GameManager = () => {
     const speed = keys.current['KeyW'] ? stats.speed * 40 : (keys.current['KeyS'] ? stats.speed * 15 : stats.speed * 25);
 
     // Control Schemes
-    let targetPitch = 0;
-    let targetYaw = 0;
-    let roll = 0;
+    if (selectedPlane === 'HELICOPTER') {
+      // HELICOPTER: Angle Mode (Stabilized)
+      const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+      euler.setFromQuaternion(playerRot.current);
 
-    if (settings.controlScheme === 'MOUSE') {
-      // Mouse controls steering, W/S throttle, Space/Click shoots
-      targetPitch = mouse.current.y * 1.5;
-      targetYaw = -mouse.current.x * 1.5;
-      roll = -mouse.current.x * 1.2;
+      // Pitch: Tilt forward/back based on mouse Y (Clamped)
+      const targetPitch = mouse.current.y * 0.8;
+      euler.x = THREE.MathUtils.lerp(euler.x, targetPitch, safeDelta * 2);
+
+      // Roll: Tilt left/right based on mouse X (Clamped)
+      const targetRoll = -mouse.current.x * 0.8;
+      euler.z = THREE.MathUtils.lerp(euler.z, targetRoll, safeDelta * 2);
+
+      // Yaw: Spin based on A/D
+      let yawRate = 0;
+      if (keys.current['KeyA']) yawRate += 1.5;
+      if (keys.current['KeyD']) yawRate -= 1.5;
+      // Mouse X also turns the heli (Old behavior)
+      yawRate -= mouse.current.x * 1.0;
+
+      euler.y += yawRate * safeDelta;
+
+      playerRot.current.setFromEuler(euler);
     } else {
-      // Keyboard controls steering (Arrow keys), W/S throttle, Click shoots
-      if (keys.current['ArrowUp']) targetPitch = 1.2;
-      if (keys.current['ArrowDown']) targetPitch = -1.2;
-      if (keys.current['ArrowLeft']) { targetYaw = 1.2; roll = 0.8; }
-      if (keys.current['ArrowRight']) { targetYaw = -1.2; roll = -0.8; }
+      // PLANES: Hybrid Rate/Angle Mode
+      const q = playerRot.current;
+      const up = new THREE.Vector3(0, 1, 0);
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q);
+      const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(q);
+
+      // 1. Pitch (Rate Mode - Allows Loops)
+      // Mouse Y controls Pitch Speed
+      const pitchSpeed = mouse.current.y * stats.turnSpeed * safeDelta;
+      const qPitch = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), pitchSpeed);
+      q.multiply(qPitch);
+
+      // 2. Yaw (Rate Mode - Mouse X turns plane)
+      // Mouse X controls Yaw Speed
+      const yawSpeed = -mouse.current.x * stats.turnSpeed * safeDelta;
+      const qYaw = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), yawSpeed);
+      q.multiply(qYaw);
+
+      // 3. Roll (Hybrid)
+      // A/D Keys = Barrel Roll (Rate Mode)
+      // Mouse X = Auto-Bank (Angle Mode tendency)
+
+      let rollRate = 0;
+      const isRolling = keys.current['KeyA'] || keys.current['KeyD'];
+
+      if (keys.current['KeyA']) rollRate += 3.0;
+      if (keys.current['KeyD']) rollRate -= 3.0;
+
+      if (isRolling) {
+        // Manual Roll Override
+        const qRoll = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 0, 1), rollRate * safeDelta);
+        q.multiply(qRoll);
+      } else {
+        // Auto-Bank Logic (Old Feel)
+        // We want the plane to bank towards -mouse.x * Limit
+        // But we must respect the current orientation (loops)
+
+        // Extract local Roll (Z-rotation) relative to horizon?
+        // Simplified: Use Euler Z extraction, but handle gimbal lock fade
+        const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+        euler.setFromQuaternion(q);
+
+        // Calculate "Level" factor. If we are vertical (pitch ~90), banking makes no sense.
+        // forward.y is 1 or -1 when vertical.
+        const levelFactor = 1.0 - Math.abs(forward.y);
+
+        // Target Roll based on Mouse X
+        const targetRoll = -mouse.current.x * 1.2;
+
+        // Smoothly interpolate current Z towards target Z
+        // We use a "soft" lerp on the Z axis
+        let newZ = THREE.MathUtils.lerp(euler.z, targetRoll, safeDelta * 3 * levelFactor);
+
+        // If we are upside down or looping, Euler Z might flip.
+        // This is the tricky part. 
+        // If levelFactor is low (vertical), we stop enforcing bank.
+        // If levelFactor is high (horizontal), we enforce bank.
+
+        if (levelFactor > 0.1) {
+          euler.z = newZ;
+          // Re-construct Quaternion from modified Euler (only Z changed)
+          // Note: This might jitter if X/Y are near singularity.
+          // But for standard flying it mimics the old feel.
+          q.setFromEuler(euler);
+        }
+      }
+
+      q.normalize();
     }
 
-    const euler = new THREE.Euler(0, 0, 0, 'YXZ');
-    euler.setFromQuaternion(playerRot.current);
-
-    // Smoothly interpolate towards target pitch/yaw
-    euler.x += (targetPitch - euler.x) * stats.turnSpeed * safeDelta;
-    euler.y += (targetYaw * stats.turnSpeed * safeDelta);
-    euler.z = THREE.MathUtils.lerp(euler.z, roll, safeDelta * 3);
-
-    playerRot.current.setFromEuler(euler);
-
-    // Forward vector (Z is negative in Three.js default look direction)
+    // Forward vector
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(playerRot.current);
     playerVel.current.copy(forward).multiplyScalar(speed * safeDelta * 10);
     playerPos.current.add(playerVel.current);
@@ -721,6 +858,7 @@ const GameManager = () => {
 
     // 4. Enemy Logic
     let enemiesChanged = false;
+    if (Math.random() < 0.01) console.log("Updating Enemies:", enemiesRef.current.length);
     enemiesRef.current.forEach(enemy => {
       // AI
       const dirToPlayer = playerPos.current.clone().sub(enemy.position).normalize();
@@ -947,31 +1085,13 @@ const GameManager = () => {
     }
   });
 
-  const spawnExplosion = (pos: THREE.Vector3, color: string, count: number) => {
-    for (let i = 0; i < count; i++) {
-      particlesRef.current.push({
-        id: Math.random().toString(),
-        position: pos.clone(),
-        velocity: new THREE.Vector3(Math.random() - 0.5, Math.random() - 0.5, Math.random() - 0.5).normalize().multiplyScalar(Math.random() * 50),
-        life: 1.0,
-        color
-      });
-    }
-    setParticleList([...particlesRef.current]);
-  };
-
-
-
-  useEffect(() => {
-    useGameStore.getState().setRefs(playerPos, playerRot, enemiesRef);
-  }, []);
-
   return (
     <>
       <ambientLight intensity={0.6} />
       <directionalLight position={[100, 200, 50]} intensity={2} castShadow />
 
       {/* Dynamic Objects */}
+      <RearViewMirror playerPos={playerPos} playerRot={playerRot} />
       <PlayerObject type={selectedPlane} positionRef={playerPos} rotationRef={playerRot} />
 
       {enemyList.map(e => <EnemyObject key={e.id} data={e} />)}

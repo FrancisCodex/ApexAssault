@@ -130,14 +130,41 @@ const SettingsMenu = ({ onClose }: { onClose: () => void }) => {
               </div>
 
               <div
-                onClick={() => updateSettings({ controlScheme: 'KEYBOARD' })}
-                className={`p-4 border rounded cursor-pointer transition-all ${settings.controlScheme === 'KEYBOARD' ? 'border-blue-500 bg-blue-900/20' : 'border-zinc-700 bg-zinc-900'}`}
+                className="
+                    p-4 border rounded 
+                    bg-zinc-900 
+                    border-zinc-700 
+                    opacity-50 
+                    cursor-not-allowed 
+                    relative
+                    select-none
+                  "
               >
                 <div className="flex justify-between items-center mb-2">
-                  <span className="font-bold text-white">Keyboard Flight</span>
-                  {settings.controlScheme === 'KEYBOARD' && <span className="text-blue-400 text-sm font-bold">ACTIVE</span>}
+                  <span className="font-bold text-white flex items-center gap-2">
+                    Keyboard Flight
+                    <span className="text-red-400 text-xs bg-red-900/40 px-2 py-0.5 rounded">
+                      Coming Soon
+                    </span>
+                  </span>
+
+                  {/* lock icon */}
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5 text-zinc-500"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 10V7a4 4 0 10-8 0v3M5 10h14v10H5V10z" />
+                  </svg>
                 </div>
-                <p className="text-sm text-zinc-400">Arrow Keys to Steer • Mouse Click to Shoot • W/S to Throttle</p>
+
+                <p className="text-sm text-zinc-500 italic">This control mode is not yet available.</p>
+
+                {/* overlay click blocker */}
+                <div className="absolute inset-0"></div>
               </div>
             </div>
           )}
@@ -326,7 +353,7 @@ export const HUD = () => {
 
       {/* Kill Confirmation Popup */}
       {showKillConfirm && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 flex flex-col items-center animate-bounce">
+        <div className="absolute top-40 left-[43%] -translate-x-1/2 flex flex-col items-center animate-bounce">
           <div className="text-red-500 font-black text-2xl tracking-widest drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]">KILL CONFIRMED</div>
           <div className="text-yellow-400 font-bold text-sm">+100</div>
         </div>

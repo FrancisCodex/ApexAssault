@@ -68,7 +68,7 @@ export const PLANE_STATS: Record<PlaneType, PlaneStats> = {
       name: 'Homer Missile',
       description: 'Acivates 5 Homer Missiles for 10s.',
       cooldown: 10000,
-      damage: 50,
+      damage: 75,
       duration: 10000,
       maxShots: 5,
       maxDistance: 1500
@@ -90,7 +90,7 @@ export const PLANE_STATS: Record<PlaneType, PlaneStats> = {
       cooldown: 10000,
       damage: 50,
       duration: 2500,
-      fireRate: 50,
+      fireRate: 100,
       maxDistance: 1000
     }
   },
@@ -102,16 +102,16 @@ export const PLANE_STATS: Record<PlaneType, PlaneStats> = {
     health: 170,
     damage: 15, // Gatling gun
     fireRate: 150,
-    flareCooldown: 5000,
-    description: 'Tanky, extremely agile turning, gatling gun.',
+    flareCooldown: 3000,
+    description: 'Tanky, very difficult to control, but extremely agile turning, gatling gun.',
     skill: {
       name: 'Missile Barrage',
       description: 'Manual rapid fire missiles. Homing in FOV.',
       cooldown: 10000,
-      damage: 12,
+      damage: 15,
       duration: 2500,
-      fireRate: 250,
-      maxDistance: 600
+      fireRate: 50,
+      maxDistance: 500
     }
   },
 };
