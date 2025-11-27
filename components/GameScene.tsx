@@ -22,6 +22,8 @@ interface Missile {
   target?: Enemy; // For homing
   life: number;
   type: 'HOMER' | 'TRAILING' | 'BARRAGE';
+  startPosition: THREE.Vector3;
+  maxDistance: number;
 }
 
 interface Enemy {
@@ -40,6 +42,13 @@ interface Particle {
   velocity: THREE.Vector3;
   life: number;
   color: string;
+}
+
+interface Flare {
+  id: string;
+  position: THREE.Vector3;
+  velocity: THREE.Vector3;
+  life: number;
 }
 
 // --- Constants ---
@@ -160,6 +169,23 @@ const ParticleObject = ({ data }: { data: Particle }) => {
   )
 }
 
+const FlareObject = ({ data }: { data: Flare }) => {
+  const meshRef = useRef<THREE.Mesh>(null);
+  useFrame(() => {
+    if (meshRef.current) {
+      meshRef.current.position.copy(data.position);
+      (meshRef.current.material as THREE.Material).opacity = data.life;
+    }
+  });
+  return (
+    <mesh ref={meshRef}>
+      <sphereGeometry args={[2, 8, 8]} />
+      <meshBasicMaterial color="#ffaa00" transparent />
+      <pointLight distance={50} intensity={5} color="#ffaa00" />
+    </mesh>
+  );
+};
+
 const Minimap = ({
   playerPos,
   playerRot,
@@ -263,7 +289,12 @@ const GameManager = () => {
     skillEndTime,
     skillCharges,
     endSkill,
-    decrementSkillCharge
+    decrementSkillCharge,
+    triggerFlares,
+    flareReadyTime,
+    isWaveTransitioning,
+    setWaveTransitioning,
+    setWarningMessage
   } = useGameStore();
 
   const { camera } = useThree();
@@ -282,6 +313,7 @@ const GameManager = () => {
   const [enemyList, setEnemyList] = useState<Enemy[]>([]);
   // const [bulletList, setBulletList] = useState<Bullet[]>([]); // REMOVED STATE
   const [particleList, setParticleList] = useState<Particle[]>([]);
+  const [flareList, setFlareList] = useState<Flare[]>([]);
 
   // Force Update for Ref-based rendering
   const [, forceUpdate] = useState({});
@@ -291,6 +323,7 @@ const GameManager = () => {
   const bulletsRef = useRef<Bullet[]>([]);
   const missilesRef = useRef<Missile[]>([]);
   const particlesRef = useRef<Particle[]>([]);
+  const flaresRef = useRef<Flare[]>([]);
 
   // Skill State
   const lastSkillShot = useRef(0);
@@ -342,10 +375,12 @@ const GameManager = () => {
       enemiesRef.current = [];
       missilesRef.current = [];
       particlesRef.current = [];
+      flaresRef.current = [];
 
       // Force UI clear
       // setBulletList([]); // REMOVED
       setParticleList([]);
+      setFlareList([]);
       setEnemyList([]);
 
       // Initial Spawn
@@ -386,8 +421,36 @@ const GameManager = () => {
       }
     }
 
+    // Flare Input
+    const handleFlare = (e: KeyboardEvent) => {
+      if (e.code === 'KeyF' && status === 'PLAYING') {
+        // Check cooldown locally or just call store (store handles check)
+        if (Date.now() >= useGameStore.getState().flareReadyTime) {
+          triggerFlares();
+          // Spawn flares
+          const count = 10;
+          for (let i = 0; i < count; i++) {
+            const angle = (i / count) * Math.PI * 2;
+            const spread = new THREE.Vector3(Math.cos(angle), 0, Math.sin(angle)).applyQuaternion(playerRot.current);
+            // Add some upward/downward variance
+            spread.y += (Math.random() - 0.5) * 0.5;
+            spread.normalize();
+
+            flaresRef.current.push({
+              id: Math.random().toString(),
+              position: playerPos.current.clone(),
+              velocity: spread.multiplyScalar(200).add(playerVel.current),
+              life: 3.0
+            });
+          }
+          setFlareList([...flaresRef.current]);
+        }
+      }
+    }
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keydown', handleSkill);
+    window.addEventListener('keydown', handleFlare);
     window.addEventListener('keyup', handleKeyUp);
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mousedown', handleMouseDown);
@@ -399,6 +462,7 @@ const GameManager = () => {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
       window.removeEventListener('keydown', handleSkill);
+      window.removeEventListener('keydown', handleFlare);
     };
   }, [pauseGame, status]);
 
@@ -449,7 +513,23 @@ const GameManager = () => {
     // Bounds
     if (Math.abs(playerPos.current.x) > WORLD_BOUNDARY) playerPos.current.x = Math.sign(playerPos.current.x) * WORLD_BOUNDARY;
     if (Math.abs(playerPos.current.z) > WORLD_BOUNDARY) playerPos.current.z = Math.sign(playerPos.current.z) * WORLD_BOUNDARY;
-    if (playerPos.current.y < 10) playerPos.current.y = 10;
+
+    // Ground Collision & Warning Logic
+    if (playerPos.current.y < 50 && playerPos.current.y > 10) {
+      setWarningMessage('PULL UP');
+    } else {
+      setWarningMessage(null);
+    }
+
+    if (playerPos.current.y <= 10) {
+      // CRASH
+      playerPos.current.y = 10;
+      playerHP.current = 0;
+      updateHealth(0);
+      spawnExplosion(playerPos.current, 'red', 50);
+      setGameStatus('GAMEOVER');
+    }
+
     if (playerPos.current.y > 1000) playerPos.current.y = 1000;
 
     // 2. Camera Chase
@@ -544,34 +624,33 @@ const GameManager = () => {
       lastSkillShot.current = now;
       decrementSkillCharge();
 
-      // Fire 5 missiles in a spread
-      for (let i = 0; i < 5; i++) {
-        // Find target in FOV
-        let target: Enemy | undefined;
-        let minDist = 3000;
-        enemiesRef.current.forEach(e => {
-          const dir = e.position.clone().sub(playerPos.current).normalize();
-          const dot = forward.dot(dir);
-          const dist = e.position.distanceTo(playerPos.current);
-          if (dot > 0.7 && dist < minDist) { // ~45 degree FOV
-            minDist = dist;
-            target = e;
-          }
-        });
+      // Fire 1 missile (Single Shot)
 
-        // Spread offset
-        const offset = new THREE.Vector3((i - 2) * 5, -2, 0);
+      // Find target in FOV
+      let target: Enemy | undefined;
+      let minDist = 3000;
+      enemiesRef.current.forEach(e => {
+        const dir = e.position.clone().sub(playerPos.current).normalize();
+        const dot = forward.dot(dir);
+        const dist = e.position.distanceTo(playerPos.current);
+        if (dot > 0.7 && dist < minDist) { // ~45 degree FOV
+          minDist = dist;
+          target = e;
+        }
+      });
 
-        const m: Missile = {
-          id: Math.random().toString(),
-          position: playerPos.current.clone().add(offset),
-          velocity: new THREE.Vector3((i - 2) * 2, -5, 0).applyQuaternion(playerRot.current).add(playerVel.current),
-          target: target,
-          life: 10.0,
-          type: 'HOMER'
-        };
-        missilesRef.current.push(m);
-      }
+      const m: Missile = {
+        id: Math.random().toString(),
+        position: playerPos.current.clone().add(new THREE.Vector3(0, -2, 0).applyQuaternion(playerRot.current)), // Slight drop
+        velocity: new THREE.Vector3(0, -5, 0).applyQuaternion(playerRot.current).add(playerVel.current),
+        target: target,
+        life: 10.0,
+        type: 'HOMER',
+        startPosition: playerPos.current.clone(),
+        maxDistance: stats.skill.maxDistance || 1500
+      };
+      missilesRef.current.push(m);
+
       forceUpdate({});
     }
 
@@ -598,7 +677,9 @@ const GameManager = () => {
         velocity: bVel,
         target: target, // If undefined, goes straight
         life: 3.0,
-        type: 'BARRAGE'
+        type: 'BARRAGE',
+        startPosition: playerPos.current.clone(),
+        maxDistance: stats.skill.maxDistance || 600
       });
       forceUpdate({});
     }
@@ -629,7 +710,9 @@ const GameManager = () => {
             velocity: back.multiplyScalar(BULLET_SPEED * 0.5),
             target: target,
             life: 5.0,
-            type: 'TRAILING'
+            type: 'TRAILING',
+            startPosition: playerPos.current.clone(),
+            maxDistance: skillStats.maxDistance || 1000
           });
           forceUpdate({});
         }
@@ -642,8 +725,24 @@ const GameManager = () => {
       // AI
       const dirToPlayer = playerPos.current.clone().sub(enemy.position).normalize();
 
-      // Rotate towards player smoothly
-      const targetQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), dirToPlayer);
+      // AI Avoidance Logic
+      let targetDir = dirToPlayer;
+      const isSkillActive = useGameStore.getState().isSkillActive;
+
+      if (isSkillActive) {
+        // Move AWAY from player
+        targetDir = dirToPlayer.clone().negate();
+
+        // Avoid world boundaries
+        const predictedPos = enemy.position.clone().add(targetDir.clone().multiplyScalar(500));
+        if (Math.abs(predictedPos.x) > WORLD_BOUNDARY || Math.abs(predictedPos.z) > WORLD_BOUNDARY) {
+          // If fleeing hits wall, just fly perpendicular or towards center
+          targetDir = enemy.position.clone().negate().normalize();
+        }
+      }
+
+      // Rotate towards target direction smoothly
+      const targetQuat = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, -1), targetDir);
       enemy.quaternion.slerp(targetQuat, PLANE_STATS[enemy.type].turnSpeed * safeDelta * 0.5);
 
       // Move
@@ -727,6 +826,14 @@ const GameManager = () => {
       const m = missilesRef.current[i];
       m.life -= safeDelta;
 
+      // Distance Limit Check
+      if (m.startPosition && m.maxDistance) {
+        if (m.position.distanceTo(m.startPosition) > m.maxDistance) {
+          m.life = 0;
+          spawnExplosion(m.position, 'orange', 0.5); // Fizzle out
+        }
+      }
+
       // Homing Logic
       if (m.target && enemiesRef.current.includes(m.target)) {
         const dir = m.target.position.clone().sub(m.position).normalize();
@@ -788,12 +895,54 @@ const GameManager = () => {
     }
     if (particlesChanged) setParticleList([...particlesRef.current]);
 
+    // 8. Flares Physics & Collision
+    let flaresChanged = false;
+    for (let i = flaresRef.current.length - 1; i >= 0; i--) {
+      const f = flaresRef.current[i];
+      f.life -= safeDelta;
+      f.position.add(f.velocity.clone().multiplyScalar(safeDelta));
+
+      // Decelerate flares
+      f.velocity.multiplyScalar(0.95);
+
+      if (f.life <= 0) {
+        flaresRef.current.splice(i, 1);
+        flaresChanged = true;
+        continue;
+      }
+
+      // Check collision with ENEMY bullets
+      for (let j = bulletsRef.current.length - 1; j >= 0; j--) {
+        const b = bulletsRef.current[j];
+        if (b.owner === 'ENEMY' && b.position.distanceTo(f.position) < 30) {
+          // Intercept!
+          bulletsRef.current.splice(j, 1);
+          // Flare might survive or die? Let's keep flare but maybe reduce life?
+          // For now, flare destroys multiple bullets.
+          spawnExplosion(b.position, 'yellow', 2);
+          forceUpdate({}); // update bullets
+        }
+      }
+    }
+    if (flaresChanged) setFlareList([...flaresRef.current]);
+
     // 7. Wave Check || FOR VICTORY AND GLORY
-    if (enemiesRef.current.length === 0 && status === 'PLAYING') {
+    if (enemiesRef.current.length === 0 && status === 'PLAYING' && !isWaveTransitioning) {
       if (wave >= 10) {
         setGameStatus('VICTORY');
       } else {
-        nextWave();
+        // Start Transition
+        setWaveTransitioning(true);
+        registerKill(1000); // Bonus points
+
+        // Wait 3 seconds
+        setTimeout(() => {
+          // Double check we are still playing (user might have quit)
+          if (useGameStore.getState().status === 'PLAYING') {
+            nextWave();
+            setWaveTransitioning(false);
+          }
+        }, 3000);
       }
     }
   });
@@ -838,6 +987,7 @@ const GameManager = () => {
       {missilesRef.current.map(m => <MissileObject key={m.id} data={m} />)}
 
       {particleList.map(p => <ParticleObject key={p.id} data={p} />)}
+      {flareList.map(f => <FlareObject key={f.id} data={f} />)}
 
       {/* Scenery */}
       <Environment preset="sunset" />
