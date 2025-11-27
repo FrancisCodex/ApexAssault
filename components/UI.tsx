@@ -21,6 +21,9 @@ export const StartScreen = () => {
           APEX ASSAULT: DOGFIGHT EDITION
         </h1>
 
+        <p className="text-center text-zinc-400 text-sm mb-4">Made by <a href="https://github.com/FrancisCodex" className="text-blue-400 font-bold hover:underline" target="_blank">@FrancisCodex</a></p>
+
+
         {/* Scoreboard / Last Mission Report */}
         {lastResult && (
           <div className="mb-6 mx-auto bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 w-full max-w-lg flex items-center justify-between shadow-inner">
