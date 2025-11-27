@@ -29,6 +29,7 @@
 | **Throttle** | `W` (Boost) / `S` (Brake) | `W` (Boost) / `S` (Brake) |
 | **Fire** | Left Click / `Space` | Left Click / `Space` |
 | **Special Skill** | `E` / `Left Shift` | `E` / `Left Shift` |
+| **Flares** | `F` / `Right Shift` | `F` / `Right Shift` |
 | **Pause** | `ESC` | `ESC` |
 
 ### Objective
