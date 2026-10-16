@@ -1,140 +1,123 @@
-# Apex Assault: Dogfight Edition
+# Apex Assault: Varga Island Conflict
 
 <div align="center">
   <img src="/assets/Apex_Logo.png" alt="Apex Assault Logo" width="200" />
   <br/>
-  <h3>High-Octane 3D Aerial Combat in Your Browser</h3>
+  <h3>Modern air combat over a contested island — in your browser</h3>
 </div>
 
-## 🎮 Overview
+## Overview
 
-**Apex Assault** is an adrenaline-pumping 3D web-based flight combat game. Pilot legendary aircraft, engage in intense dogfights against waves of enemy AI, and survive to become the ultimate ace. Built with modern web technologies, it delivers a console-like experience directly in your browser.
+**Apex Assault** is an Ace Combat–inspired flight combat game built with **Three.js**, React and TypeScript.
+Fly strike missions deep into enemy territory or hold the line over your home base, against AI pilots that
+fly the same physics model you do.
 
-## 🚀 Features
+## Features
 
--   **Immersive 3D Graphics**: Stunning visuals powered by Three.js and React Three Fiber.
--   **Intense Combat**: Fast-paced dogfighting with dynamic enemy AI.
--   **Multiple Aircraft**: Choose from 3 distinct classes, each with unique stats and special skills.
--   **Wave-Based Survival**: Face increasingly difficult waves of enemies.
--   **Responsive Controls**: Support for both Mouse and Keyboard flight controls.
--   **Progression**: Track your score, kills, and wave progress.
--   **Plane Movement**: Very Fun Plane Movements and maneuvers you can try.
--   **AI**: AI is not perfect but it is fun to play against.
+- **Realistic island theatre** — a 32 × 32 km procedurally generated island (Varga Island) with a coastline,
+  the Greyspine mountain range and its low pass, an arid eastern plateau, forests, towns, two full air bases
+  with runways and hangars, SAM sites, flak batteries and radar stations.
+- **Two game modes**
+  - **Attack — Operation Hammerfall:** breach the Greyspine Pass SAM belt, dismantle Kessel Ridge Air Base
+    (air defenses, hangars that keep scrambling fighters) and destroy the command bunker. Watch out for the
+    Crimson Wolf ace squadron.
+  - **Defense — Operation Iron Bastion:** defend Port Ardent Air Base at dawn against five escalating raids of
+    fighters, escorted bombers and ground-attack jets coming out of the sunrise. Keep the base above 35%
+    integrity and Base Command alive.
+- **Energy-based flight model** — thrust, drag, gravity, G-limited turn rates, corner speed, angle of attack,
+  stalls, induced drag that bleeds speed in hard turns, afterburner, airbrake and a **high-G post-stall turn**
+  (accelerate + brake + pull). The F-22 and Su-57 have thrust vectoring for the tightest maneuvers.
+- **Helicopter flight model** for the AH-64 — collective, cyclic, pedals, hover and landing.
+- **Ace Combat style controls** — *Standard* (bank-and-turn assist with auto-level), *Expert* (full manual roll)
+  and *Mouse Aim* (point where you want to fly). Gamepad supported.
+- **Cameras** — close chase, far chase, cockpit (with canopy and instrument panel) and HUD-only; free look,
+  look-back and target-lock camera. Optional rear-view mirror.
+- **Combat** — gun with lead pipper and optional aim assist, lock-on missiles with alternating rails,
+  multi-lock special weapons (XLAA, Hellfire), high-agility QAAM, guided bombs, rocket salvos, flares that
+  decoy incoming missiles, missile alerts and lock warnings, terrain masking against SAM radar.
+- **AI pilots** — pursue with lead/lag pursuit, gun bursts, missile locks, break turns and flares against
+  incoming missiles, terrain avoidance, bombers that compute release points, attackers that dive-bomb,
+  escorts, and allied wingmen who fight alongside you.
+- **HUD** — pitch ladder, flight path marker, speed / altitude / heading tapes, G meter, target brackets,
+  lock diamonds, off-screen target arrows, rotating radar, weapon panel, damage readout, tactical map (M).
+- **Procedural audio** — engine, wind, guns, missiles, explosions, lock tone and missile alert, all synthesized
+  with the Web Audio API (no audio files).
 
-## 🕹️ How to Play
+## Aircraft
 
-### Controls
-
-| Action | Mouse Mode (Default) | Keyboard Mode |
+| Aircraft | Role | Special weapon |
 | :--- | :--- | :--- |
-| **Steer** | Mouse Movement | Arrow Keys |
-| **Throttle** | `W` (Boost) / `S` (Brake) | `W` (Boost) / `S` (Brake) |
-| **Fire** | Left Click / `Space` | Left Click / `Space` |
-| **Special Skill** | `E` / `Left Shift` | `E` / `Left Shift` |
-| **Flares** | `F` / `Right Shift` | `F` / `Right Shift` |
-| **Pause** | `ESC` | `ESC` |
+| F-14D Super Tomcat | Multirole | XLAA — long-range, locks 4 air targets |
+| F-22A Raptor | Air superiority | QAAM — extremely agile dogfight missile |
+| A-10C Thunderbolt II | Attacker | GPB — guided bombs |
+| Spitfire Mk IX (restomod) | Agile fighter | RKT — rocket salvos |
+| AH-64E Apache Guardian | Attack helicopter | AGM-114 Hellfire — locks 4 ground targets |
 
-### Objective
+## Controls
 
-1.  **Survive**: Defeat all enemies in the current wave to advance.
-2.  **Score**: Earn points by destroying enemy aircraft.
-3.  **Win**: Survive until **Wave 10** to complete the mission.
+| Action | Keyboard / Mouse | Gamepad |
+| :--- | :--- | :--- |
+| Pitch (nose down / up) | `W` / `S` | Left stick ↕ |
+| Roll / bank-turn | `A` / `D` | Left stick ↔ |
+| Yaw (rudder) | `Q` / `E` | LB / RB |
+| Accelerate / afterburner | `Shift` | RT |
+| Brake / airbrake | `Space` | LT |
+| High-G turn | `Shift` + `Space` + pull | RT + LT + pull |
+| Gun | Left mouse / `J` | X |
+| Fire missile / special | Right mouse / `K` | A |
+| Switch MSL ⇄ special | `R` | Y |
+| Switch target | `Tab` / `T` | B |
+| Flares | `F` | D-pad ↓ |
+| Look at target (hold) | `C` | R3 |
+| Look back (hold) | `X` | L3 |
+| Free look | Mouse / arrow keys | Right stick |
+| Change camera | `V` | View |
+| Tactical map | `M` | — |
+| Pause | `Esc` / `P` | Menu |
 
-## ✈️ Hangar: Aircraft & Skills
+Click the screen once in flight to capture the mouse. Pitch can be inverted in Settings.
 
-Choose your ride wisely. Each aircraft caters to a different playstyle.
+## Running locally
 
-### 1. F-14 Tomcat (Fighter)
-*The balanced choice for any ace.*
--   **Description**: The F-14 Tomcat is a United States Navy fighter aircraft that is known for its balanced stats and special skills.
--   **Stats**: Balanced Speed, Turn, and Health.
--   **Weapon**: Standard Machine Gun.
--   **Special Skill**: **Homer Missile** - Fires 5 long-range and high-damage tracking missiles on click that lock onto the nearest enemy. The Homing Missiles are very deadly missiles that is effective against long-range targets solo targets.
--   **Cooldown**: 10s
--   **Duration**: 10s or until all 5 missiles are used.
--   **Flares**: Flares are used to counter enemy missiles.
--   **Agile Movement**: The F-14 is the most agile plane in the game.
+**Prerequisites:** Node.js 18+
 
-### 2. Spitfire MK (Propeller)
-*Old school cool. High damage, high agility.*
--   **Description**: The Spitfire is a classic British fighter aircraft that is known for its agility and high damage.
--   **Stats**: High Turn Speed, High Damage, Lower Top Speed.
--   **Weapon**: Heavy Cannons.
--   **Special Skill**: **Trailing Missile** - Fires a backward-tracking missile to surprise enemies on your six. The missile has a medium distance limit and high damage that is effective when getting chased by multiple enemies.
--   **Cooldown**: 10s
--   **Duration**: 3s
--   **Flares**: Flares are used to counter enemy missiles.
--   **DPS**: The Spitfire is the highest DPS plane in the game.
-
-### 3. Apache AH-64 (Helicopter)
-*A flying tank. Slow but deadly.*
--   **Description**: The Apache is a Soviet-era attack helicopter that is known for its high health and durability.
--   **Stats**: High Health, Extreme Turn Speed, Low Speed.
--   **Weapon**: Rapid-fire Gatling Gun (Low damage per hit, high fire rate).
--   **Special Skill**: **Missile Barrage** - Unleashes a swarm of homing missiles for 2.5 seconds on click, very good in close range combat against swarming enemies. Missiles are not as effective against long-range targets but has the highest Damage Per Second for homing missiles.
--   **Cooldown**: 10s
--   **Duration**: 2.5s
--   **Flares**: Flares are used to counter enemy missiles.
--   **Durability**: The Apache is the most durable plane in the game.
-## 🛠️ For Developers
-
-### Tech Stack
-
--   **Frontend Framework**: [React](https://reactjs.org/)
--   **3D Engine**: [Three.js](https://threejs.org/) via [React Three Fiber](https://docs.pmnd.rs/react-three-fiber)
--   **State Management**: [Zustand](https://github.com/pmndrs/zustand)
--   **Styling**: [Tailwind CSS](https://tailwindcss.com/)
--   **Build Tool**: [Vite](https://vitejs.dev/)
--   **Icons**: [Lucide React](https://lucide.dev/)
-
-### Project Structure
-
-```
-src/
-├── components/
-│   ├── GameScene.tsx    # Main 3D scene and game loop logic
-│   ├── Models.tsx       # 3D model components (Fighter, Propeller, etc.)
-│   └── UI.tsx           # HUD, Menus, and Overlays
-├── store.ts             # Global game state (Zustand)
-├── types.ts             # TypeScript definitions and Game Constants
-├── App.tsx              # Root component
-└── main.tsx             # Entry point
+```bash
+npm install
+npm run dev
 ```
 
-### Running Locally
+Then open the URL Vite prints (default `http://localhost:3000`).
 
-1.  **Clone the repository**
-2.  **Install dependencies**:
-    ```bash
-    npm install
-    ```
-3.  **Start the development server**:
-    ```bash
-    npm run dev
-    ```
-4.  **Build for production**:
-    ```bash
-    npm run build
-    ```
+```bash
+npm run build      # production build
+npm run typecheck  # TypeScript check
+```
 
-## 🤝 Contribution
+## Project structure
 
-Contributions are welcome! If you have ideas for new planes, enemies, or features:
+```
+game/
+  Engine.ts            renderer, loop, mission host, post-processing
+  PlayerController.ts  input → stick commands, targeting, lock-on
+  CameraRig.ts         chase / cockpit / HUD / cinematic cameras
+  HUD.ts               canvas HUD
+  Audio.ts             synthesized sound
+  entities/            Aircraft (flight models, weapons), GroundTarget (SAM, AA, structures)
+  ai/                  PilotAI and steering helpers
+  systems/             bullets, missiles, flares, particles, effects
+  world/               terrain, water, sky, clouds, map layout
+  missions/            Attack and Defense missions
+  models/              procedural aircraft, buildings and cockpit geometry
+components/            React menus and mission overlay
+```
 
-1.  Fork the repository.
-2.  Create a feature branch (`git checkout -b feature/AmazingFeature`).
-3.  Commit your changes (`git commit -m 'Add some AmazingFeature'`).
-4.  Push to the branch (`git push origin feature/AmazingFeature`).
-5.  Open a Pull Request.
+## Technologies
 
-## 🐞 Bug Reports
-
-If you find a bug, please open an issue on the [GitHub repository](https://github.com/FrancisCodex/ApexAssault/issues).
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- [Three.js](https://threejs.org/) — rendering, post-processing
+- [React](https://react.dev/) + [Zustand](https://github.com/pmndrs/zustand) — menus and UI state
+- [Tailwind CSS](https://tailwindcss.com/) — styling
+- [Vite](https://vitejs.dev/) — build tool
 
 ---
 
-**Created by @FrancisCodex**
+*Made by [@FrancisCodex](https://github.com/FrancisCodex)*
