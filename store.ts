@@ -1,202 +1,99 @@
 import { create } from 'zustand';
-import { GameState, PlaneType, PLANE_STATS, GameStatus, Settings } from './types';
+import type { AircraftId } from './game/data/aircraft';
+import {
+  DEFAULT_SETTINGS,
+  type Banner, type Difficulty, type MissionMode, type MissionResult, type Objective,
+  type RadioMessage, type Settings,
+} from './game/data/types';
 
-interface Store extends GameState {
-  skillCooldown: number;
-  setGameStatus: (status: GameStatus) => void;
-  selectPlane: (plane: PlaneType) => void;
-  startGame: () => void;
-  pauseGame: () => void;
-  resumeGame: () => void;
-  quitGame: () => void;
-  resetGame: () => void;
-  restartGame: () => void;
-  updateHealth: (current: number) => void;
-  registerKill: (scoreAmount: number) => void;
-  nextWave: () => void;
-  setEnemiesRemaining: (count: number) => void;
-  updateSettings: (settings: Partial<Settings>) => void;
-  setIsFiring: (isFiring: boolean) => void;
-  isSkillActive: boolean;
-  skillEndTime: number;
-  skillCharges: number;
-  triggerSkill: () => void;
-  endSkill: () => void;
-  decrementSkillCharge: () => void;
-  resetSkill: () => void;
-  flareReadyTime: number;
-  triggerFlares: () => void;
-  playerPosRef: any;
-  playerRotRef: any;
-  enemiesRef: any;
-  setRefs: (playerPosRef: any, playerRotRef: any, enemiesRef: any) => void;
-  enemiesRemaining: number;
-  isWaveTransitioning: boolean;
-  setWaveTransitioning: (isTransitioning: boolean) => void;
-  warningMessage: string | null;
-  setWarningMessage: (msg: string | null) => void;
+export type Screen = 'LOADING' | 'MENU' | 'MISSIONS' | 'HANGAR' | 'PLAYING' | 'PAUSED' | 'RESULTS';
+
+const SETTINGS_KEY = 'apex-assault-settings-v2';
+const RECORDS_KEY = 'apex-assault-records-v2';
+
+const load = <T,>(key: string, fallback: T): T => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const save = (key: string, value: unknown) => {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* storage unavailable */ }
+};
+
+export type Records = Partial<Record<MissionMode, { score: number; rank: string; aircraft: AircraftId }>>;
+
+interface Store {
+  screen: Screen;
+  mode: MissionMode;
+  aircraft: AircraftId;
+  difficulty: Difficulty;
+  settings: Settings;
+  objectives: Objective[];
+  radio: RadioMessage[];
+  banner: Banner | null;
+  result: MissionResult | null;
+  records: Records;
+  missionTitle: string;
+  showSettings: boolean;
+
+  setScreen: (s: Screen) => void;
+  setMode: (m: MissionMode) => void;
+  setAircraft: (a: AircraftId) => void;
+  setDifficulty: (d: Difficulty) => void;
+  updateSettings: (s: Partial<Settings>) => void;
+  setObjectives: (o: Objective[]) => void;
+  pushRadio: (m: Omit<RadioMessage, 'id' | 'time'>) => void;
+  setBanner: (b: Omit<Banner, 'id'> | null) => void;
+  setResult: (r: MissionResult) => void;
+  setMissionTitle: (t: string) => void;
+  setShowSettings: (v: boolean) => void;
+  resetMissionUi: () => void;
 }
 
+let radioId = 0;
+let bannerId = 0;
+
 export const useGameStore = create<Store>((set, get) => ({
-  // --- existing fields ----
-  status: 'MENU',
-  wave: 1,
-  score: 0,
-  enemiesKilled: 0,
-  enemiesRemaining: 0,
-  selectedPlane: 'FIGHTER',
-  playerHealth: 100,
-  maxPlayerHealth: 100,
-  isFiring: false,
-  skillCooldown: 0,
-  isSkillActive: false,
-  skillEndTime: 0,
-  skillCharges: 0,
-  flareReadyTime: 0,
-  isWaveTransitioning: false,
-  lastResult: null,
-  warningMessage: null,
+  screen: 'LOADING',
+  mode: 'ATTACK',
+  aircraft: 'F14',
+  difficulty: 'NORMAL',
+  settings: load(SETTINGS_KEY, DEFAULT_SETTINGS),
+  objectives: [],
+  radio: [],
+  banner: null,
+  result: null,
+  records: load<Records>(RECORDS_KEY, {}),
+  missionTitle: '',
+  showSettings: false,
 
-  settings: {
-    controlScheme: 'MOUSE',
-    showClouds: true,
-    showRearViewMirror: false,
-    masterVolume: 80,
+  setScreen: (screen) => set({ screen }),
+  setMode: (mode) => set({ mode }),
+  setAircraft: (aircraft) => set({ aircraft }),
+  setDifficulty: (difficulty) => set({ difficulty }),
+  updateSettings: (s) => {
+    const settings = { ...get().settings, ...s };
+    save(SETTINGS_KEY, settings);
+    set({ settings });
   },
-
-  playerPosRef: null,
-  playerRotRef: null,
-  enemiesRef: null,
-
-  setRefs: (playerPosRef, playerRotRef, enemiesRef) =>
-    set({ playerPosRef, playerRotRef, enemiesRef }),
-
-  setGameStatus: (status) => set({ status }),
-
-  setWarningMessage: (msg) => set({ warningMessage: msg }),
-
-  selectPlane: (plane) => set({ selectedPlane: plane }),
-
-  startGame: () => set((state) => {
-    const stats = PLANE_STATS[state.selectedPlane];
-    return {
-      status: 'PLAYING',
-      wave: 1,
-      score: 0,
-      enemiesKilled: 0,
-      playerHealth: stats.health,
-      maxPlayerHealth: stats.health,
-      isFiring: false,
-      skillCooldown: 0,
-      flareReadyTime: 0,
-      isWaveTransitioning: false,
-      warningMessage: null,
-    };
-  }),
-
-  pauseGame: () => set((state) => state.status === 'PLAYING' ? { status: 'PAUSED', isFiring: false } : {}),
-
-  resumeGame: () => set((state) => state.status === 'PAUSED' ? { status: 'PLAYING' } : {}),
-
-  quitGame: () => {
-    const state = get();
-    const stats = PLANE_STATS[state.selectedPlane];
-    set({
-      status: 'MENU',
-      isFiring: false,
-      lastResult: {
-        score: state.score,
-        wave: state.wave,
-        plane: stats.name
-      },
-      warningMessage: null,
-    });
-  },
-
-  resetGame: () => {
-    const state = get();
-    const stats = PLANE_STATS[state.selectedPlane];
-    set({
-      status: 'MENU',
-      isFiring: false,
-      lastResult: {
-        score: state.score,
-        wave: state.wave,
-        plane: stats.name
-      },
-      warningMessage: null,
-    });
-  },
-
-  restartGame: () => set((state) => {
-    const stats = PLANE_STATS[state.selectedPlane];
-    return {
-      status: 'PLAYING',
-      wave: 1,
-      score: 0,
-      enemiesKilled: 0,
-      playerHealth: stats.health,
-      maxPlayerHealth: stats.health,
-      isFiring: false,
-      warningMessage: null,
-    };
-  }),
-
-  updateHealth: (current) => set({ playerHealth: current }),
-
-  registerKill: (amount) => set((state) => ({
-    score: state.score + amount,
-    enemiesKilled: state.enemiesKilled + 1
+  setObjectives: (objectives) => set({ objectives: objectives.map((o) => ({ ...o })) }),
+  pushRadio: (m) => set((st) => ({
+    radio: [...st.radio, { ...m, id: ++radioId, time: performance.now() }].slice(-5),
   })),
-
-  nextWave: () => set((state) => ({ wave: state.wave + 1 })),
-
-  setEnemiesRemaining: (count) => set({ enemiesRemaining: count }),
-
-  updateSettings: (newSettings) => set((state) => ({ settings: { ...state.settings, ...newSettings } })),
-
-  setIsFiring: (isFiring) => set({ isFiring }),
-
-  triggerSkill: () => {
-    const state = get();
-    if (state.skillCooldown > Date.now() || state.isSkillActive) return;
-
-    const stats = PLANE_STATS[state.selectedPlane];
-    set({
-      isSkillActive: true,
-      skillEndTime: Date.now() + stats.skill.duration,
-      skillCharges: stats.skill.maxShots || 0
-    });
-  },
-
-  endSkill: () => {
-    const state = get();
-    if (!state.isSkillActive) return;
-
-    const stats = PLANE_STATS[state.selectedPlane];
-    set({
-      isSkillActive: false,
-      skillCooldown: Date.now() + stats.skill.cooldown,
-      skillCharges: 0
-    });
-  },
-
-  decrementSkillCharge: () => {
-    const state = get();
-    if (state.skillCharges > 0) {
-      set({ skillCharges: state.skillCharges - 1 });
+  setBanner: (b) => set({ banner: b ? { ...b, id: ++bannerId } : null }),
+  setResult: (result) => {
+    const records = { ...get().records };
+    const prev = records[result.mode];
+    if (result.success && (!prev || result.score > prev.score)) {
+      records[result.mode] = { score: result.score, rank: result.rank, aircraft: result.aircraft };
+      save(RECORDS_KEY, records);
     }
+    set({ result, records });
   },
-
-  resetSkill: () => set({ skillCooldown: 0 }),
-
-  triggerFlares: () => {
-    const state = get();
-    if (Date.now() < state.flareReadyTime) return;
-
-    const stats = PLANE_STATS[state.selectedPlane];
-    set({ flareReadyTime: Date.now() + stats.flareCooldown });
-  },
-
-  setWaveTransitioning: (isTransitioning) => set({ isWaveTransitioning: isTransitioning }),
+  setMissionTitle: (missionTitle) => set({ missionTitle }),
+  setShowSettings: (showSettings) => set({ showSettings }),
+  resetMissionUi: () => set({ objectives: [], radio: [], banner: null, result: null }),
 }));

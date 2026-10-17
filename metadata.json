@@ -1,5 +1,5 @@
 {
   "name": "Apex Assault",
-  "description": "A high-octane 3D flight combat game. Choose your aircraft, survive endless waves of enemies, and dominate the skies.",
+  "description": "Ace Combat-inspired 3D air combat over a contested island. Fly attack and defense missions with a realistic energy-based flight model, lock-on missiles and AI pilots.",
   "requestFramePermissions": []
 }
